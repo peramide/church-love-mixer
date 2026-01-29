@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Love Mixer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            /* Warm, Earthy, "Wes Anderson" Palette */
+            --bg-color: #F9F7F1; /* Cream Paper */
+            --card-white: #ffffff;
+            --accent-red: #E07A5F; /* Terracotta */
+            --accent-yellow: #F2CC8F; /* Mustard */
+            --accent-green: #81B29A; /* Sage */
+            --text-dark: #3D405B; /* Soft Black */
+            --shadow-color: rgba(61, 64, 91, 0.15);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+            background-size: 20px 20px;
+            font-family: 'Nunito', sans-serif;
+            color: var(--text-dark);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* --- UI UTILS: The "Imperfect" Look --- */
+        .hand-drawn {
+            border: 3px solid var(--text-dark);
+            border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+        }
+
+        .marker-font {
+            font-family: 'Gochi Hand', cursive;
+        }
+
+        .paper-card {
+            background: var(--card-white);
+            box-shadow: 10px 10px 0px var(--shadow-color);
+            transition: transform 0.2s ease;
+        }
+
+        /* --- CONTAINER STYLES --- */
+        #app-container {
+            width: 90%;
+            max-width: 650px;
+            text-align: center;
+            padding: 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            color: var(--accent-red);
+            margin: 0;
+            transform: rotate(-2deg);
+            text-shadow: 2px 2px 0px var(--accent-yellow);
+        }
+
+        p { font-size: 1.2rem; color: #666; margin-bottom: 20px; }
+
+        /* --- INPUT STAGE --- */
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 20px;
+            font-size: 1.1rem;
+            border: 2px solid var(--text-dark);
+            border-radius: 10px;
+            background: repeating-linear-gradient(
+                var(--card-white),
+                var(--card-white) 30px,
+                #f0f0f0 31px
+            );
+            line-height: 31px;
+            resize: none;
+            font-family: 'Gochi Hand', cursive;
+            color: var(--text-dark);
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.1);
+        }
+        textarea:focus { outline: none; border-color: var(--accent-red); transform: scale(1.01); }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: white;
+            font-family: 'Gochi Hand', cursive;
+            font-size: 1.8rem;
+            padding: 10px 40px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.2s;
+            border: 3px solid var(--text-dark);
+        }
+
+        .btn-primary:hover {
+            transform: translate(-2px, -2px) rotate(1deg);
+            box-shadow: 5px 5px 0px var(--text-dark);
+            background: #d66a4e;
+        }
+
+        .btn-primary:active {
+            transform: translate(2px, 2px);
+            box-shadow: 0px 0px 0px;
+        }
+
+        /* --- GAME STAGE --- */
+        #game-stage, #result-stage { display: none; }
+
+        .card-scene {
+            height: 300px;
+            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .flashcard {
+            width: 300px;
+            height: 200px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border: 4px solid var(--text-dark);
+            border-radius: 10px;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.1);
+        }
+
+        .card-front {
+            background: var(--accent-yellow);
+            color: var(--text-dark);
+            flex-direction: column;
+            transform: rotate(1deg);
+        }
+
+        .card-back {
+            background: var(--card-white);
+            transform: rotateY(180deg) rotate(-1deg);
+            flex-direction: column;
+            padding: 10px;
+        }
+
+        .flashcard.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite; }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0) rotate(1deg); }
+            20%, 80% { transform: translate3d(4px, 0, 0) rotate(-1deg); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0) rotate(2deg); }
+            40%, 60% { transform: translate3d(8px, 0, 0) rotate(-2deg); }
+        }
+
+        .names-display {
+            font-family: 'Gochi Hand', cursive;
+            font-size: 2rem;
+            color: var(--accent-red);
+            line-height: 1.2;
+        }
+
+        .and-symbol {
+            font-size: 1rem;
+            color: #999;
+            font-family: 'Nunito', sans-serif;
+            margin: 5px 0;
+        }
+
+        /* --- RESULT STAGE --- */
+        .result-list {
+            text-align: left;
+            background: white;
+            padding: 20px;
+            border: 2px solid var(--text-dark);
+            border-radius: 5px;
+            max-height: 40vh;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        .result-item {
+            padding: 10px;
+            border-bottom: 1px dashed #ccc;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.1rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-secondary {
+            background: var(--accent-green);
+            color: white;
+            border: 2px solid var(--text-dark);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-family: 'Nunito', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px var(--text-dark);
+        }
+        
+        .btn-secondary:active { transform: translate(2px, 2px); box-shadow: none; }
+
+        /* --- CONFETTI (CSS Only) --- */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-red);
+            animation: fall linear forwards;
+            z-index: 0;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+
+        /* --- PRINT STYLES --- */
+        @media print {
+            body { background: white; height: auto; overflow: visible; }
+            #input-stage, #game-stage, .action-buttons, h1, p { display: none; }
+            #result-stage { display: block; position: static; width: 100%; }
+            .result-list { border: none; box-shadow: none; max-height: none; }
+            .print-header { display: block !important; text-align: center; margin-bottom: 20px; font-size: 2rem; font-family: 'Gochi Hand'; color: black; }
+        }
+        .print-header { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="paper-card hand-drawn">
+        
+        <div id="input-stage">
+            <h1 class="marker-font">The Love Mixer</h1>
+            <p>Paste your list. We'll handle the destiny part.</p>
+            <textarea id="namesInput" class="hand-drawn" placeholder="John Doe&#10;Jane Smith&#10;Brother Michael&#10;Sister Sarah"></textarea>
+            <button class="btn-primary hand-drawn" onclick="initGame()">Mix the Potion! 🧪</button>
+        </div>
+
+        <div id="game-stage">
+            <h1 class="marker-font">Fate is working...</h1>
+            <p id="counter-text">Pair 1 of X</p>
+            
+            <div class="card-scene">
+                <div class="flashcard hand-drawn" id="flashcard">
+                    <div class="card-face card-front">
+                        <span style="font-size: 3rem;">💌</span>
+                        <div class="marker-font" style="margin-top: 10px;">Drumroll...</div>
+                    </div>
+                    <div class="card-face card-back">
+                        <div class="names-display" id="pair-names">
+                            </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p style="font-size: 0.9rem; opacity: 0.7;">(Sound is on! 🔊)</p>
+        </div>
+
+        <div id="result-stage">
+            <div class="print-header">❤️ Divine Pairs List ❤️</div>
+            <h1 class="marker-font">It is Finished!</h1>
+            <p>Here are the lovely couples.</p>
+            
+            <div class="result-list" id="final-list">
+                </div>
+
+            <div class="action-buttons">
+                <button class="btn-secondary" onclick="downloadExcel()">📥 Excel</button>
+                <button class="btn-secondary" onclick="window.print()">🖨️ PDF / Print</button>
+                <button class="btn-secondary" style="background: #e76f51;" onclick="location.reload()">🔄 New Game</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 🎵 HOLLYWOOD AUDIO ENGINE 🎵 ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let suspenseNodes = []; // To track playing sounds and stop them
+
+        // 1. White Noise Generator (For Drum Roll)
+        function createNoiseBuffer() {
+            const bufferSize = audioCtx.sampleRate * 2; // 2 sec buffer
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            return buffer;
+        }
+        const noiseBuffer = createNoiseBuffer();
+
+        // 2. Start Suspense (Drum Roll + Rising Pitch)
+        function playSuspense() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // A. Snare Drum Roll (White Noise through Filter)
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+            noise.loop = true;
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'highpass';
+            noiseFilter.frequency.value = 800;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+            noiseGain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 1.5); // Fade in
+            
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.start();
+
+            // B. Rising Orchestral Swell (Sawtooth Wave)
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 1.5); // Rise pitch
+            
+            const oscGain = audioCtx.createGain();
+            oscGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            oscGain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 1.5);
+            
+            // Add slight lowpass to make it less harsh
+            const oscFilter = audioCtx.createBiquadFilter();
+            oscFilter.type = 'lowpass';
+            oscFilter.frequency.value = 2000;
+
+            osc.connect(oscFilter);
+            oscFilter.connect(oscGain);
+            oscGain.connect(audioCtx.destination);
+            osc.start();
+
+            suspenseNodes = [noise, osc, noiseGain, oscGain];
+        }
+
+        // 3. Stop Suspense and Play Fanfare
+        function playFanfare() {
+            const now = audioCtx.currentTime;
+
+            // Stop Suspense
+            suspenseNodes.forEach(node => {
+                if(node.stop) node.stop();
+                if(node.gain) node.gain.linearRampToValueAtTime(0, now + 0.1);
+            });
+            suspenseNodes = [];
+
+            // Play Major Chord (C E G C) - Harp Style
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            
+            notes.forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'triangle'; // Softer, flute-like
+                osc.frequency.setValueAtTime(freq, now);
+                
+                // Stagger starts for "strumming" effect
+                const startTime = now + (index * 0.05); 
+                
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05); // Attack
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2); // Long Decay
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(startTime);
+                osc.stop(startTime + 2.5);
+            });
+        }
+
+
+        // --- GAME LOGIC ---
+        let finalPairs = [];
+        
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function createConfetti() {
+            const colors = ['#E07A5F', '#F2CC8F', '#81B29A'];
+            for(let i=0; i<30; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti');
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.top = -10 + 'px';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                document.body.appendChild(conf);
+                setTimeout(() => conf.remove(), 4000);
+            }
+        }
+
+        async function initGame() {
+            const rawText = document.getElementById('namesInput').value;
+            let names = rawText.split('\n').map(n => n.trim()).filter(n => n);
+            
+            if(names.length < 2) {
+                alert("We need at least 2 people to make a pair! 😉");
+                return;
+            }
+
+            // Prep UI
+            document.getElementById('input-stage').style.display = 'none';
+            document.getElementById('game-stage').style.display = 'block';
+
+            // Logic
+            names = shuffle(names);
+            let pairs = [];
+            while(names.length >= 2) {
+                pairs.push([names.pop(), names.pop()]);
+            }
+            if(names.length === 1) {
+                if(pairs.length > 0) pairs[pairs.length-1].push(names[0]);
+                else pairs.push([names[0], "The Holy Spirit"]);
+            }
+            
+            finalPairs = pairs;
+
+            // Run Animation Loop
+            const card = document.getElementById('flashcard');
+            const pairDisplay = document.getElementById('pair-names');
+            const counter = document.getElementById('counter-text');
+            const listContainer = document.getElementById('final-list');
+
+            for(let i=0; i<pairs.length; i++) {
+                counter.innerText = `Matching Pair ${i+1} of ${pairs.length}`;
+                
+                // 1. Reset Card
+                card.classList.remove('flipped');
+                pairDisplay.innerHTML = "";
+                
+                // 2. Suspense Phase (Drumroll + Rise)
+                playSuspense(); 
+                card.classList.add('shake');
+                
+                await new Promise(r => setTimeout(r, 2000)); // 2s suspense (Slightly longer for drama)
+                
+                // 3. Reveal Phase (Fanfare)
+                card.classList.remove('shake');
+                playFanfare();
+                createConfetti();
+                
+                const currentPair = pairs[i];
+                let html = `<div>${currentPair[0]}</div><div class="and-symbol">&</div><div>${currentPair[1]}</div>`;
+                if(currentPair.length === 3) {
+                     html = `<div>${currentPair[0]}</div><div class="and-symbol">&</div><div>${currentPair[1]}</div><div class="and-symbol">&</div><div>${currentPair[2]}</div>`;
+                }
+                
+                pairDisplay.innerHTML = html;
+                card.classList.add('flipped');
+
+                // Add to hidden list
+                let listHtml = `<div class="result-item"><span>${i+1}.</span> <strong>${currentPair.join(" + ")}</strong></div>`;
+                listContainer.innerHTML += listHtml;
+
+                await new Promise(r => setTimeout(r, 4000)); // View time
+            }
+
+            // End Game
+            document.getElementById('game-stage').style.display = 'none';
+            document.getElementById('result-stage').style.display = 'block';
+            playFanfare(); // One last Tada!
+            createConfetti();
+            createConfetti();
+        }
+
+        // --- EXPORT FUNCTIONS ---
+        function downloadExcel() {
+            const data = finalPairs.map((pair, index) => ({
+                "Pair Number": index + 1,
+                "Person 1": pair[0],
+                "Person 2": pair[1],
+                "Person 3 (If Odd)": pair[2] || ""
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "LoveMatches");
+            XLSX.writeFile(wb, "Church_Matches.xlsx");
+        }
+
+    </script>
+</body>
+</html>
